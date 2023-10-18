@@ -1,6 +1,8 @@
 const fs = require("fs");
 const http = require("http");
 const url = require("url");
+const ReplaceTemplate = require("./modules/ReplaceTemplate");
+const slugify = require("slugify");
 
 //? Files
 
@@ -43,27 +45,16 @@ let TempCard = fs.readFileSync(
 );
 const Data = fs.readFileSync(`${__dirname}/dev-data/data.json`, "utf-8");
 let DataApi = JSON.parse(Data);
-const ReplaceTemplate = function (temp, product) {
-  let output = temp.replace(/{%PRODUCTNAME%}/g, product.productName);
-  output = output.replace(/{%IMAGE%}/g, product.image);
-  output = output.replace(/{%PRICE%}/g, product.price);
-  output = output.replace(/{%FROM%}/g, product.from);
-  output = output.replace(/{%NUTRIENTS%}/g, product.nutrients);
-  output = output.replace(/{%QUANTITY%}/g, product.quantity);
-  output = output.replace(/{%DESCRIPTION%}/g, product.description);
-  output = output.replace(/{%ID%}/g, product.id);
-
-  if (!product.organic)
-    output = output.replace(/{%NOT_ORGANIC%}/g, "not-organic");
-  return output;
-};
 // Create an HTTP server
 const server = http.createServer((req, res) => {
   // Get the requested URL path
-  let PathName = req.url;
-
+  let { query, pathname } = url.parse(req.url, true);
+  const Slug = DataApi.map((data) =>
+    slugify(data.productName, { lower: true })
+  );
+  console.log(Slug);
   // Handle different routes based on the URL
-  if (PathName === "/" || PathName === "/overview") {
+  if (pathname === "/" || pathname === "/overview") {
     // Serve the overview page
     res.writeHead(200, { "Content-type": "text/html" });
     const CardHtml = DataApi.map((product) =>
@@ -71,10 +62,13 @@ const server = http.createServer((req, res) => {
     ).join("");
     let Output = TempOverview.replace(/{%PRODUCT_CARDS%}/g, CardHtml);
     res.end(Output);
-  } else if (PathName === "/product") {
+  } else if (pathname === "/product") {
     // Serve a product-related response
-    res.end("this is the product route");
-  } else if (PathName === "/api") {
+    let product = DataApi[query.id];
+    let output = ReplaceTemplate(TempProduct, product);
+    res.end(output);
+    console.log("hello nodemon");
+  } else if (pathname === "/api") {
     // Serve JSON data
     res.writeHead(200, { "Content-type": "application/json" });
     res.end(Data);
